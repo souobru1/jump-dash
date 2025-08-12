@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Jump & Dash Personalizado</title>
+<style>
+  body {
+    margin: 0;
+    background: #222;
+    color: white;
+    font-family: sans-serif;
+    text-align: center;
+  }
+  canvas {
+    background: #444;
+    display: block;
+    margin: 20px auto;
+    border-radius: 10px;
+  }
+  #menu,
+  #gameover {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.8);
+  }
+  button {
+    padding: 10px 20px;
+    font-size: 20px;
+    margin-top: 10px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+  }
+  select {
+    font-size: 18px;
+    padding: 5px 10px;
+    margin-top: 10px;
+    border-radius: 5px;
+  }
+</style>
+</head>
+<body>
+  <canvas id="game" width="480" height="320"></canvas>
+
+  <div id="menu">
+    <h1>Jump & Dash</h1>
+    <p>Escolhe tua skin:</p>
+    <select id="skinSelect">
+      <option value="0">Cinza Básico</option>
+      <option value="1">Vermelho com Óculos</option>
+      <option value="2">Azul com Chapéu</option>
+      <option value="3">Verde com Bigode</option>
+      <option value="4">Amarelo com Capa</option>
+    </select>
+    <button id="startBtn">Jogar</button>
+  </div>
+
+  <div id="gameover" style="display: none;">
+    <h1>Game Over</h1>
+    <p>Score: <span id="finalScore">0</span></p>
+    <button id="restartBtn">Jogar de Novo</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const skins = [
+      { color: "#888" },
+      { color: "#d22", accessories: ["👓"] },
+      { color: "#26a", accessories: ["🎩"] },
+      { color: "#2a7", accessories: ["👨🏻‍🦰"] },
+      { color: "#fa3", accessories: ["🦸"] },
+    ];
+
+    let gameRunning = false;
+    let score = 0;
+    let player = { x: 50, y: 250, vy: 0, onGround: true, skin: 0 };
+    let obstacles = [];
+    let gravity = 0.5;
+    let obstacleTimer = 0;
+    let obstacleInterval = 90; // frames
+    let speed = 3;
+
+    function resetGame() {
+      score = 0;
+      player.x = 50;
+      player.y = 250;
+      player.vy = 0;
+      player.onGround = true;
+      obstacles = [];
+      obstacleTimer = 0;
+      gameRunning = true;
+    }
+
+    function startGame() {
+      const select = document.getElementById("skinSelect");
+      player.skin = parseInt(select.value);
+      document.getElementById("menu").style.display = "none";
+      document.getElementById("gameover").style.display = "none";
+      resetGame();
+      gameLoop();
+    }
+
+    function endGame() {
+      gameRunning = false;
+      document.getElementById("finalScore").textContent = score;
+      document.getElementById("gameover").style.display = "flex";
+    }
+
+    function spawnObstacle() {
+      obstacles.push({ x: canvas.width, y: 270, width: 20, height: 30 });
+    }
+
+    function updateObstacles() {
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        obstacles[i].x -= speed;
+        if (obstacles[i].x + obstacles[i].width < 0) {
+          obstacles.splice(i, 1);
+          score += 10;
+        }
+      }
+    }
+
+    function checkCollision() {
+      for (let obs of obstacles) {
+        if (
+          player.x < obs.x + obs.width &&
+          player.x + 20 > obs.x &&
+          player.y + 20 > obs.y &&
+          player.y < obs.y + obs.height
+        ) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function drawPlayer() {
+      let skin = skins[player.skin];
+      ctx.fillStyle = skin.color;
+      ctx.fillRect(player.x, player.y, 20, 20);
+      if (skin.accessories) {
+        ctx.font = "16px serif";
+        ctx.fillText(skin.accessories[0], player.x + 4, player.y + 16);
+      }
+    }
+
+    function drawObstacles() {
+      ctx.fillStyle = "#f00";
+      for (let obs of obstacles) {
+        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+      }
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#eee";
+      ctx.font = "20px monospace";
+      ctx.fillText("Score: " + score, 10, 30);
+
+      if (gameRunning) {
+        // Update player physics
+        player.vy += gravity;
+        player.y += player.vy;
+        if (player.y > 250) {
+          player.y = 250;
+          player.vy = 0;
+          player.onGround = true;
+        }
+
+        // Obstacles
+        obstacleTimer++;
+        if (obstacleTimer > obstacleInterval) {
+          spawnObstacle();
+          obstacleTimer = 0;
+          if (obstacleInterval > 50) obstacleInterval -= 1; // aumenta dificuldade
+        }
+        updateObstacles();
+
+        // Check collision
+        if (checkCollision()) endGame();
+      }
+
+      drawPlayer();
+      drawObstacles();
+
+      if (gameRunning) requestAnimationFrame(gameLoop);
+    }
+
+    function jump() {
+      if (gameRunning && player.onGround) {
+        player.vy = -10;
+        player.onGround = false;
+      }
+    }
+
+    // Controls
+    document.getElementById("startBtn").onclick = () => startGame();
+    document.getElementById("restartBtn").onclick = () => startGame();
+
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space") {
+        if (!gameRunning) startGame();
+        else jump();
+      }
+    });
+    window.addEventListener("mousedown", (e) => {
+      if (!gameRunning) startGame();
+      else jump();
+    });
+    window.addEventListener("touchstart", (e) => {
+      if (!gameRunning) startGame();
+      else jump();
+    });
+  </script>
+</body>
+</html>
